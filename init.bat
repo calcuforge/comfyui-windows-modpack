@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 REM ============================================================
 REM  ComfyUI Windows Modpack - init script
 REM  Ported from docker/comfyui/comfyui_with_nodes.Dockerfile
-REM  Steps: 3 isolated venvs / ComfyUI / 48 custom_nodes /
+REM  Steps: 3 isolated venvs / ComfyUI / 46 custom_nodes /
 REM         SageAttention build / model downloads
 REM  After init completes, double-click run.bat to start.
 REM  NOTE: batch files must stay ASCII-only (cmd.exe cannot
@@ -158,7 +158,6 @@ call :git_clone "kijai/ComfyUI-WanVideoWrapper"
 call :git_clone "lihaoyun6/ComfyUI-FlashVSR_Ultra_Fast"
 call :git_clone "kijai/ComfyUI-MMAudio"
 call :git_clone "phazei/ComfyUI-HunyuanVideo-Foley"
-call :git_clone "ussoewwin/ComfyUI-QwenImageLoraLoader"
 call :git_clone "Derfuu/Derfuu_ComfyUI_ModdedNodes"
 call :git_clone "sipherxyz/comfyui-art-venture"
 call :git_clone "jamesWalker55/comfyui-various"
@@ -167,7 +166,6 @@ call :git_clone "godmt/ComfyUI-List-Utils"
 call :git_clone "glowcone/comfyui-string-converter"
 call :git_clone "hgabha/WWAA-CustomNodes"
 call :git_clone "TenStrip/10S-Comfy-nodes" "10S_Nodes"
-call :git_clone "ChenDarYen/ComfyUI-NAG"
 call :git_clone "ApolloLX/ComfyUI_Robot"
 call :git_clone "kijai/ComfyUI-PromptRelay"
 call :git_clone "AICoderTudou/ComfyUI-TT-Resolution_selector-Node"
