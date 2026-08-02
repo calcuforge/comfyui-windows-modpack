@@ -1,0 +1,10 @@
+# qwen-asr pulls its own exact transformers/accelerate pins. Do NOT add a
+# transformers== pin here: qwen-asr pins transformers==4.57.6, which conflicts
+# with qwen-tts's transformers==4.57.3 in a shared venv.
+qwen-asr
+modelscope
+soundfile
+numpy
+torch
+transformers==4.57.6
+accelerate

@@ -1,1 +1,8 @@
 .idea
+
+# 生成目录 / generated directories (由 init.bat 生成)
+ComfyUI/
+python_comfyui/
+python_qwentts/
+python_qwenasr/
+SageAttention/
