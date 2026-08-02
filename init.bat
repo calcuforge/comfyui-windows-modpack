@@ -36,6 +36,11 @@ set "PYTORCH_MIRROR=https://mirrors.aliyun.com/pytorch-wheels/cu130"
 set "GHFAST=https://ghfast.top/https://github.com"
 set "GHPROXY=http://ghproxy.calcuforge.com:8080/https://github.com"
 
+REM git timeout protection (proxies can hang silently; fail fast and retry next mirror)
+set "GIT_HTTP_LOW_SPEED_LIMIT=1000"
+set "GIT_HTTP_LOW_SPEED_TIME=60"
+set "GIT_HTTP_CONNECT_TIMEOUT=30"
+
 REM HuggingFace mirror (same as Docker image, faster in China)
 set "HF_ENDPOINT=https://hf-mirror.com"
 set "HF_HUB_ENABLE_HF_XET=0"
