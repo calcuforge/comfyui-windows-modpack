@@ -189,16 +189,32 @@ call :git_clone "AsonZhang/ComfyUI-Qwen3-TTS"
 call :git_clone "AsonZhang/ComfyUI-Qwen3-ASR"
 
 REM Install each node's requirements.txt (Qwen3-TTS/Qwen3-ASR are installed in their own venvs)
+REM pip-internal git clones (e.g. git+https deps) can crawl on direct github,
+REM so rewrite github URLs to the ghfast proxy while pip runs
+set "GIT_CONFIG_COUNT=1"
+set "GIT_CONFIG_KEY_0=url.https://ghfast.top/https://github.com/.insteadOf"
+set "GIT_CONFIG_VALUE_0=https://github.com/"
 for /d %%d in ("%NODES_DIR%\*") do (
     set "NODE=%%~nxd"
     if /i not "!NODE!"=="ComfyUI-Qwen3-TTS" if /i not "!NODE!"=="ComfyUI-Qwen3-ASR" (
         if exist "%%d\requirements.txt" (
             echo [4/8] Installing dependencies: !NODE!
             "%PYCOM%" -m pip install %PIP_FLAGS% -r "%%d\requirements.txt"
-            if errorlevel 1 echo [4/8] WARNING: dependency install failed for !NODE!, skipped
+            if errorlevel 1 (
+                echo [4/8] WARNING: batch install failed for !NODE!, retrying package by package...
+                for /f "usebackq eol=# delims=" %%p in ("%%d\requirements.txt") do (
+                    set "PKG=%%p"
+                    REM skip git+ deps here: pip re-clones them every time, and the batch step already handled them
+                    if not "!PKG:~0,4!"=="git+" (
+                        "%PYCOM%" -m pip install %PIP_FLAGS% "%%p" >nul 2>&1
+                        if errorlevel 1 echo [4/8] WARNING: skipped !NODE! dep: %%p
+                    )
+                )
+            )
         )
     )
 )
+set "GIT_CONFIG_COUNT="
 
 REM Extra packages from the Docker image (failure is non-fatal)
 "%PYCOM%" -m pip install %PIP_FLAGS% --upgrade pip setuptools wheel build wheel-stub >nul 2>&1
