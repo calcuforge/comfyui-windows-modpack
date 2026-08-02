@@ -1,16 +1,28 @@
 @echo off
-chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 REM ============================================================
-REM  ComfyUI Windows 整合包 - 初始化脚本
-REM  逻辑移植自 docker/comfyui/comfyui_with_nodes.Dockerfile
-REM  包含: 3个独立venv / ComfyUI / 48个custom_nodes / SageAttention / 模型下载
-REM  初始化完成后, 双击 run.bat 即可启动
+REM  ComfyUI Windows Modpack - init script
+REM  Ported from docker/comfyui/comfyui_with_nodes.Dockerfile
+REM  Steps: 3 isolated venvs / ComfyUI / 48 custom_nodes /
+REM         SageAttention build / model downloads
+REM  After init completes, double-click run.bat to start.
+REM  NOTE: batch files must stay ASCII-only (cmd.exe cannot
+REM  reliably parse UTF-8 Chinese in .bat files).
 REM ============================================================
 
-REM ==================== 配置 ====================
+REM ==================== Logging (all output also written to init.log) ====================
 set "ROOT=%~dp0"
+if "%1"=="--tee" goto :main
+powershell -NoProfile -Command "[Console]::OutputEncoding=[System.Text.Encoding]::GetEncoding([Console]::OutputCodePage); Add-Content -LiteralPath \"%~dp0init.log\" -Encoding utf8 -Value \"================================================\"; Add-Content -LiteralPath \"%~dp0init.log\" -Encoding utf8 -Value (\"[ \" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + \" ] init.bat started\"); cmd /d /c \"\"%~f0\"\" --tee 2>&1 | ForEach-Object { $t=$_.ToString(); $t; $t | Out-File -LiteralPath \"%~dp0init.log\" -Append -Encoding utf8 }; exit $LASTEXITCODE"
+set "ERR=%errorlevel%"
+echo.
+echo Init log saved to: %ROOT%init.log
+pause
+exit /b %ERR%
+
+:main
+REM ==================== Config ====================
 set "COMFYUI_DIR=%ROOT%ComfyUI"
 set "NODES_DIR=%COMFYUI_DIR%\custom_nodes"
 set "MODEL_DIR=%COMFYUI_DIR%\models"
@@ -24,24 +36,24 @@ set "PYTORCH_MIRROR=https://mirrors.aliyun.com/pytorch-wheels/cu130"
 set "GHFAST=https://ghfast.top/https://github.com"
 set "GHPROXY=http://ghproxy.calcuforge.com:8080/https://github.com"
 
-REM HuggingFace 镜像 (与Docker镜像一致, 国内加速)
+REM HuggingFace mirror (same as Docker image, faster in China)
 set "HF_ENDPOINT=https://hf-mirror.com"
 set "HF_HUB_ENABLE_HF_XET=0"
 set "HF_HUB_DISABLE_XET=1"
 
-REM hf 下载命令行 (huggingface_hub 附带)
+REM hf CLI (shipped with huggingface_hub)
 set "HF_BIN=%VENV_COMFY%\Scripts\hf.exe"
 if not exist "%HF_BIN%" set "HF_BIN=%VENV_COMFY%\Scripts\huggingface-cli.exe"
 
-REM 设为 1 可跳过模型下载, 只搭建运行环境
+REM Set to 1 to skip model downloads (environment only)
 set "SKIP_MODEL_DOWNLOAD=0"
 
-REM ==================== 0. 基础环境检查 ====================
-echo [0/8] 检查基础环境...
+REM ==================== 0. Environment check ====================
+echo [0/8] Checking environment...
 
 where git >nul 2>nul
 if errorlevel 1 (
-    echo [错误] 未检测到 Git, 请先安装 https://git-scm.com/download/win
+    echo [ERROR] Git not found. Install it first: https://git-scm.com/download/win
     goto :fail
 )
 
@@ -52,8 +64,8 @@ if not defined PY (
     for /f "delims=" %%i in ('python -c "import sys;v=sys.version_info;print(sys.executable) if (v.major,v.minor)>= (3,11) else None" 2^>nul') do set "PY=%%i"
 )
 if not defined PY (
-    echo [错误] 未检测到 Python 3.11+, 请先安装 Python 3.14: https://www.python.org/downloads/
-    echo        安装时请勾选 "Add python.exe to PATH", 或安装 py 启动器
+    echo [ERROR] Python 3.11+ not found. Install Python 3.14: https://www.python.org/downloads/
+    echo        During install, check "Add python.exe to PATH" or install the py launcher
     goto :fail
 )
 echo [0/8] Python: "%PY%"
@@ -65,63 +77,63 @@ if not errorlevel 1 (
     set "CUDA_ARCH="
     for /f "skip=1 tokens=*" %%i in ('nvidia-smi --query-gpu=compute_cap --format=csv 2^>nul') do set "CUDA_ARCH=%%i"
     if not defined CUDA_ARCH set "CUDA_ARCH=8.6"
-    echo [0/8] NVIDIA GPU 计算能力: !CUDA_ARCH!
+    echo [0/8] NVIDIA GPU compute capability: !CUDA_ARCH!
 ) else (
-    echo [0/8] 未检测到 NVIDIA 显卡 (nvidia-smi), 将跳过 SageAttention 编译
+    echo [0/8] No NVIDIA GPU found ^(nvidia-smi missing^), SageAttention build will be skipped
 )
 where nvcc >nul 2>nul
 if errorlevel 1 (
-    echo [0/8] 未检测到 nvcc (CUDA Toolkit), SageAttention 将只尝试 pip 预编译包
-    echo        如需源码编译, 请安装 CUDA Toolkit 12.8+: https://developer.nvidia.com/cuda-downloads
+    echo [0/8] nvcc ^(CUDA Toolkit^) not found, SageAttention will only try the pip wheel
+    echo        To build from source, install CUDA Toolkit 12.8+: https://developer.nvidia.com/cuda-downloads
 )
 
-REM ==================== 1. 创建三个独立虚拟环境 ====================
-echo [1/8] 创建虚拟环境 (python_comfyui / python_qwentts / python_qwenasr)...
+REM ==================== 1. Create three isolated venvs ====================
+echo [1/8] Creating venvs (python_comfyui / python_qwentts / python_qwenasr)...
 "%PY%" -m venv "%VENV_COMFY%"
-if errorlevel 1 ( echo [错误] 创建 python_comfyui 失败 & goto :fail )
+if errorlevel 1 ( echo [ERROR] Failed to create python_comfyui & goto :fail )
 "%PY%" -m venv "%VENV_QWENTTS%"
-if errorlevel 1 ( echo [错误] 创建 python_qwentts 失败 & goto :fail )
+if errorlevel 1 ( echo [ERROR] Failed to create python_qwentts & goto :fail )
 "%PY%" -m venv "%VENV_QWENASR%"
-if errorlevel 1 ( echo [错误] 创建 python_qwenasr 失败 & goto :fail )
+if errorlevel 1 ( echo [ERROR] Failed to create python_qwenasr & goto :fail )
 
 set "PYCOM=%VENV_COMFY%\Scripts\python.exe"
 set "PYTTS=%VENV_QWENTTS%\Scripts\python.exe"
 set "PYASR=%VENV_QWENASR%\Scripts\python.exe"
 
 for %%V in ("%VENV_COMFY%" "%VENV_QWENTTS%" "%VENV_QWENASR%") do (
-    echo [1/8] 升级pip: %%~nxV
+    echo [1/8] Upgrading pip: %%~nxV
     "%%~V\Scripts\python.exe" -m pip install -q -i %PIP_INDEX% --upgrade pip
 )
 
-REM ==================== 2. 克隆 ComfyUI ====================
-echo [2/8] 克隆 ComfyUI...
+REM ==================== 2. Clone ComfyUI ====================
+echo [2/8] Cloning ComfyUI...
 call :git_clone_root "comfyanonymous/ComfyUI" "%COMFYUI_DIR%"
 
-REM ==================== 3. ComfyUI 基础依赖 ====================
-echo [3/8] 安装 ComfyUI 基础依赖...
+REM ==================== 3. ComfyUI core dependencies ====================
+echo [3/8] Installing ComfyUI core dependencies...
 "%PYCOM%" -m pip install %PIP_FLAGS% -U setuptools wheel huggingface_hub
 
-echo [3/8] 安装 PyTorch cu130 (阿里云镜像, 失败自动回退)...
+echo [3/8] Installing PyTorch cu130 (Aliyun mirror, auto fallback)...
 "%PYCOM%" -m pip install %PIP_FLAGS% -f %PYTORCH_MIRROR% torch torchvision torchaudio
 if errorlevel 1 (
-    echo [3/8] 阿里云镜像失败, 回退官方 cu130 源...
+    echo [3/8] Aliyun mirror failed, falling back to official cu130 index...
     "%PYCOM%" -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 )
 if errorlevel 1 (
-    echo [3/8] 官方 cu130 失败, 回退默认源...
+    echo [3/8] Official cu130 failed, falling back to default index...
     "%PYCOM%" -m pip install %PIP_FLAGS% torch torchvision torchaudio
 )
-if errorlevel 1 ( echo [错误] PyTorch 安装失败, 请检查网络 & goto :fail )
+if errorlevel 1 ( echo [ERROR] PyTorch install failed, check your network & goto :fail )
 
 "%PYCOM%" -m pip install %PIP_FLAGS% ninja==1.11.1.4
 if errorlevel 1 "%PYCOM%" -m pip install %PIP_FLAGS% ninja
 
-echo [3/8] 安装 ComfyUI requirements.txt...
+echo [3/8] Installing ComfyUI requirements.txt...
 "%PYCOM%" -m pip install %PIP_FLAGS% -r "%COMFYUI_DIR%\requirements.txt"
-if errorlevel 1 ( echo [错误] ComfyUI 依赖安装失败 & goto :fail )
+if errorlevel 1 ( echo [ERROR] ComfyUI dependency install failed & goto :fail )
 
-REM ==================== 4. custom_nodes ====================
-echo [4/8] 克隆 custom_nodes 并安装依赖...
+REM ==================== 4. Custom nodes ====================
+echo [4/8] Cloning custom_nodes and installing their dependencies...
 call :git_clone "ltdrdata/ComfyUI-Manager"
 call :git_clone "Suzie1/ComfyUI_Comfyroll_CustomNodes"
 call :git_clone "city96/ComfyUI-GGUF"
@@ -171,52 +183,52 @@ call :git_clone "AsonZhang/ComfyUI_IndexTTS"
 call :git_clone "AsonZhang/ComfyUI-Qwen3-TTS"
 call :git_clone "AsonZhang/ComfyUI-Qwen3-ASR"
 
-REM 安装各节点 requirements.txt (Qwen3-TTS/Qwen3-ASR 在独立venv中安装, 跳过)
+REM Install each node's requirements.txt (Qwen3-TTS/Qwen3-ASR are installed in their own venvs)
 for /d %%d in ("%NODES_DIR%\*") do (
     set "NODE=%%~nxd"
     if /i not "!NODE!"=="ComfyUI-Qwen3-TTS" if /i not "!NODE!"=="ComfyUI-Qwen3-ASR" (
         if exist "%%d\requirements.txt" (
-            echo [4/8] 安装依赖: !NODE!
+            echo [4/8] Installing dependencies: !NODE!
             "%PYCOM%" -m pip install %PIP_FLAGS% -r "%%d\requirements.txt"
-            if errorlevel 1 echo [4/8] 警告: !NODE! 依赖安装失败, 已跳过
+            if errorlevel 1 echo [4/8] WARNING: dependency install failed for !NODE!, skipped
         )
     )
 )
 
-REM 与Docker镜像一致的附加包 (失败不影响使用)
+REM Extra packages from the Docker image (failure is non-fatal)
 "%PYCOM%" -m pip install %PIP_FLAGS% --upgrade pip setuptools wheel build wheel-stub >nul 2>&1
 "%PYCOM%" -m pip install %PIP_FLAGS% nvidia-vfx
-if errorlevel 1 echo [4/8] 警告: nvidia-vfx 安装失败 (非必需, 已跳过)
+if errorlevel 1 echo [4/8] WARNING: nvidia-vfx install failed (optional, skipped)
 
-REM ==================== 5. Qwen3-TTS 独立环境 ====================
-echo [5/8] 安装 Qwen3-TTS 独立环境...
+REM ==================== 5. Qwen3-TTS isolated venv ====================
+echo [5/8] Installing Qwen3-TTS isolated venv...
 "%PYTTS%" -m pip install %PIP_FLAGS% soundfile
-echo [5/8] pynini: Windows 无官方预编译包, 尝试失败则跳过
+echo [5/8] pynini: no official Windows wheel, trying and skipping on failure
 "%PYTTS%" -m pip install %PIP_FLAGS% pynini --only-binary=:all:
-if errorlevel 1 echo [5/8] 提示: pynini 在 Windows 不可用, 已跳过 (Qwen3-TTS 不依赖它)
+if errorlevel 1 echo [5/8] NOTE: pynini unavailable on Windows, skipped (Qwen3-TTS does not depend on it)
 "%PYTTS%" -m pip install %PIP_FLAGS% -r "%NODES_DIR%\ComfyUI-Qwen3-TTS\requirements.txt"
 if errorlevel 1 (
-    echo [警告] Qwen3-TTS 依赖安装失败, 请检查网络后重新运行本脚本
+    echo [WARNING] Qwen3-TTS dependency install failed, re-run this script after fixing network
 )
 
-REM ==================== 6. Qwen3-ASR 独立环境 ====================
-echo [6/8] 安装 Qwen3-ASR 独立环境...
+REM ==================== 6. Qwen3-ASR isolated venv ====================
+echo [6/8] Installing Qwen3-ASR isolated venv...
 "%PYASR%" -m pip install %PIP_FLAGS% -r "%ROOT%qwen3_asr_requirements.txt"
 if errorlevel 1 (
-    echo [警告] Qwen3-ASR 依赖安装失败, 请检查网络后重新运行本脚本
+    echo [WARNING] Qwen3-ASR dependency install failed, re-run this script after fixing network
 )
 
-REM ==================== 7. 编译安装 SageAttention ====================
-echo [7/8] 编译安装 SageAttention...
+REM ==================== 7. Build and install SageAttention ====================
+echo [7/8] Building SageAttention...
 if "%SAGE_SKIP%"=="1" goto :sage_done
 where nvcc >nul 2>nul
 if errorlevel 1 (
-    echo [7/8] 未检测到 nvcc, 尝试 pip 预编译包...
+    echo [7/8] nvcc not found, trying the pip wheel...
     "%PYCOM%" -m pip install %PIP_FLAGS% sageattention
-    if errorlevel 1 echo [7/8] 警告: sageattention 预编译包不可用, 已跳过 (不影响 ComfyUI 运行)
+    if errorlevel 1 echo [7/8] WARNING: sageattention wheel unavailable, skipped ^(ComfyUI still works^)
     goto :sage_done
 )
-echo [7/8] 检测到 nvcc, 开始源码编译 SageAttention, CUDA_ARCH=!CUDA_ARCH! ...
+echo [7/8] nvcc found, building from source, CUDA_ARCH=!CUDA_ARCH! ...
 "%PYCOM%" -m pip install %PIP_FLAGS% packaging
 if not exist "%ROOT%SageAttention" (
     git clone --depth 1 "https://github.com/AsonZhang/SageAttention" "%ROOT%SageAttention" >nul 2>&1
@@ -224,7 +236,7 @@ if not exist "%ROOT%SageAttention" (
     if errorlevel 1 git clone --depth 1 "%GHPROXY%/AsonZhang/SageAttention" "%ROOT%SageAttention"
 )
 if not exist "%ROOT%SageAttention\setup.py" (
-    echo [7/8] SageAttention 源码克隆失败, 已跳过
+    echo [7/8] SageAttention source clone failed, skipped
     goto :sage_done
 )
 cd /d "%ROOT%SageAttention"
@@ -234,14 +246,14 @@ set "NVCC_APPEND_FLAGS=--threads 16"
 set "TORCH_CUDA_ARCH_LIST=!CUDA_ARCH!"
 "%PYCOM%" setup.py install
 if errorlevel 1 (
-    echo [7/8] 源码编译失败, 尝试 pip 预编译包...
+    echo [7/8] Source build failed, trying the pip wheel...
     "%PYCOM%" -m pip install %PIP_FLAGS% sageattention
 )
 cd /d "%ROOT%"
 :sage_done
 
-REM ==================== 8. 下载模型 ====================
-echo [8/8] 下载模型 (已存在的自动跳过, 可随时中断, 重新运行继续)...
+REM ==================== 8. Download models ====================
+echo [8/8] Downloading models (existing files are skipped, safe to interrupt and re-run)...
 if "%SKIP_MODEL_DOWNLOAD%"=="1" goto :models_done
 
 REM --- VAE ---
@@ -284,20 +296,20 @@ call :single_download "Kijai/LTX2.3_comfy" "text_encoders/ltx-2.3_text_projectio
 call :single_download "Comfy-Org/stable-audio-3" "text_encoders/t5gemma_b_b_ul2.safetensors" "%MODEL_DIR%\text_encoders" "t5gemma_b_b_ul2.safetensors"
 call :single_download "Comfy-Org/Qwen3.5" "text_encoders/qwen3.5_2b_bf16.safetensors" "%MODEL_DIR%\text_encoders" "qwen3.5_2b_bf16.safetensors"
 
-REM --- TTS 组件 ---
+REM --- TTS components ---
 call :single_download "nvidia/bigvgan_v2_22khz_80band_256x" "bigvgan_generator.pt" "%MODEL_DIR%\TTS\bigvgan_v2_22khz_80band_256x" "bigvgan_generator.pt"
 call :single_download "nvidia/bigvgan_v2_22khz_80band_256x" "config.json" "%MODEL_DIR%\TTS\bigvgan_v2_22khz_80band_256x" "config.json"
 call :single_download "funasr/campplus" "campplus_cn_common.bin" "%MODEL_DIR%\TTS\campplus" "campplus_cn_common.bin"
 call :single_download "amphion/MaskGCT" "semantic_codec/model.safetensors" "%MODEL_DIR%\TTS\MaskGCT\semantic_codec" "model.safetensors"
 
-REM --- 整目录模型 ---
+REM --- Whole-folder models ---
 call :single_download_folder "IndexTeam/IndexTTS-2" "%MODEL_DIR%\TTS\IndexTTS-2"
 call :single_download_folder "facebook/w2v-bert-2.0" "%MODEL_DIR%\TTS\w2v-bert-2.0"
 call :single_download_folder "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign" "%MODEL_DIR%\Qwen3-TTS\Qwen3-TTS-12Hz-1.7B-VoiceDesign"
 call :single_download_folder "Qwen/Qwen3-TTS-12Hz-1.7B-Base" "%MODEL_DIR%\Qwen3-TTS\Qwen3-TTS-12Hz-1.7B-Base"
 call :single_download_folder "Qwen/Qwen3-ASR-1.7B" "%MODEL_DIR%\Qwen3-ASR\Qwen3-ASR-1.7B"
 
-REM --- 空目录占位 (与Docker镜像一致) ---
+REM --- Placeholder empty dirs (same as Docker image) ---
 if not exist "%MODEL_DIR%\FlashVSR-v1.1" mkdir "%MODEL_DIR%\FlashVSR-v1.1"
 if not exist "%MODEL_DIR%\transformers\TencentGameMate\chinese-wav2vec2-base" mkdir "%MODEL_DIR%\transformers\TencentGameMate\chinese-wav2vec2-base"
 if not exist "%MODEL_DIR%\mmaudio\nvidia" mkdir "%MODEL_DIR%\mmaudio\nvidia"
@@ -310,8 +322,8 @@ if not exist "%MODEL_DIR%\omnivoice" mkdir "%MODEL_DIR%\omnivoice"
 :models_done
 echo.
 echo ============================================================
-echo  初始化全部完成!
-echo  现在双击 run.bat 启动 ComfyUI
+echo  Init completed!
+echo  Now double-click run.bat to start ComfyUI
 echo ============================================================
 echo.
 pause
@@ -320,19 +332,19 @@ exit /b 0
 :fail
 echo.
 echo ============================================================
-echo  初始化失败, 请根据上方错误信息处理后重新运行本脚本
+echo  Init failed. Fix the errors above and re-run this script
 echo ============================================================
 pause
 exit /b 1
 
-REM ==================== 子程序 ====================
+REM ==================== Subroutines ====================
 
 :git_clone_root
 set "REPO=%~1"
 set "DEST=%~2"
-if exist "%DEST%\main.py" ( echo [2/8] 跳过: ComfyUI 已存在 & exit /b 0 )
+if exist "%DEST%\main.py" ( echo [2/8] Skip: ComfyUI already exists & exit /b 0 )
 if exist "%DEST%" rmdir /s /q "%DEST%"
-echo [2/8] 克隆 %REPO% ...
+echo [2/8] Cloning %REPO% ...
 git clone --depth 1 "https://github.com/%REPO%" "%DEST%" >nul 2>&1
 if not errorlevel 1 exit /b 0
 if exist "%DEST%" rmdir /s /q "%DEST%"
@@ -340,7 +352,7 @@ git clone --depth 1 "%GHFAST%/%REPO%" "%DEST%" >nul 2>&1
 if not errorlevel 1 exit /b 0
 if exist "%DEST%" rmdir /s /q "%DEST%"
 git clone --depth 1 "%GHPROXY%/%REPO%" "%DEST%"
-if errorlevel 1 ( echo [错误] ComfyUI 克隆失败 & goto :fail )
+if errorlevel 1 ( echo [ERROR] Failed to clone ComfyUI & goto :fail )
 exit /b 0
 
 :git_clone
@@ -349,10 +361,10 @@ set "NAME=%~2"
 if not defined NAME for %%a in ("%REPO%") do set "NAME=%%~nxa"
 set "DEST=%NODES_DIR%\%NAME%"
 if exist "%DEST%" (
-    if exist "%DEST%\.git" ( echo [4/8] 跳过: %NAME% 已存在 & exit /b 0 )
+    if exist "%DEST%\.git" ( echo [4/8] Skip: %NAME% already exists & exit /b 0 )
     rmdir /s /q "%DEST%"
 )
-echo [4/8] 克隆 %REPO% ...
+echo [4/8] Cloning %REPO% ...
 git clone --depth 1 "https://github.com/%REPO%" "%DEST%" >nul 2>&1
 if not errorlevel 1 exit /b 0
 if exist "%DEST%" rmdir /s /q "%DEST%"
@@ -360,7 +372,7 @@ git clone --depth 1 "%GHFAST%/%REPO%" "%DEST%" >nul 2>&1
 if not errorlevel 1 exit /b 0
 if exist "%DEST%" rmdir /s /q "%DEST%"
 git clone --depth 1 "%GHPROXY%/%REPO%" "%DEST%"
-if errorlevel 1 echo [4/8] 警告: 克隆失败 %REPO% (不影响其他节点)
+if errorlevel 1 echo [4/8] WARNING: failed to clone %REPO% (other nodes unaffected)
 exit /b 0
 
 :single_download
@@ -369,28 +381,28 @@ set "FILE=%~2"
 set "TARGET_DIR=%~3"
 set "TARGET_FILE=%~4"
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
-if exist "%TARGET_DIR%\%TARGET_FILE%" ( echo [8/8] 跳过: %TARGET_FILE% 已存在 & exit /b 0 )
+if exist "%TARGET_DIR%\%TARGET_FILE%" ( echo [8/8] Skip: %TARGET_FILE% already exists & exit /b 0 )
 for /l %%i in (1,1,5) do (
-    echo [8/8] 下载 %%i/5: %REPO% / %FILE%
+    echo [8/8] Downloading %%i/5: %REPO% / %FILE%
     "%HF_BIN%" download "%REPO%" "%FILE%" --local-dir "%TARGET_DIR%"
     if not errorlevel 1 exit /b 0
-    echo [8/8] 下载失败, 30秒后重试...
+    echo [8/8] Download failed, retrying in 30 seconds...
     %SystemRoot%\System32\timeout.exe /t 30 /nobreak >nul
 )
-echo [8/8] 失败: %REPO% / %FILE%
+echo [8/8] FAILED: %REPO% / %FILE%
 exit /b 0
 
 :single_download_folder
 set "REPO=%~1"
 set "TARGET_DIR=%~2"
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
-if exist "%TARGET_DIR%\*" ( echo [8/8] 跳过: %~nx2 已存在 & exit /b 0 )
+if exist "%TARGET_DIR%\*" ( echo [8/8] Skip: %~nx2 non-empty & exit /b 0 )
 for /l %%i in (1,1,5) do (
-    echo [8/8] 下载 %%i/5 目录: %REPO%
+    echo [8/8] Downloading %%i/5 folder: %REPO%
     "%HF_BIN%" download "%REPO%" --local-dir "%TARGET_DIR%"
     if not errorlevel 1 exit /b 0
-    echo [8/8] 下载失败, 30秒后重试...
+    echo [8/8] Download failed, retrying in 30 seconds...
     %SystemRoot%\System32\timeout.exe /t 30 /nobreak >nul
 )
-echo [8/8] 失败: %REPO%
+echo [8/8] FAILED: %REPO%
 exit /b 0

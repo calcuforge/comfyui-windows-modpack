@@ -15,6 +15,7 @@ comfyui-windows-modpack/
 ├── run.bat                     # 一键启动脚本 (首次运行自动调用 init.bat)
 ├── qwen3_asr_requirements.txt  # Qwen3-ASR 独立环境依赖清单
 ├── README.md                   # 本文档
+├── init.log                    # 初始化运行日志 (由 init.bat 自动生成, 控制台与日志同时输出)
 ├── python_comfyui/             # ComfyUI 主环境 (venv, 由 init.bat 生成)
 ├── python_qwentts/             # Qwen3-TTS 独立环境 (venv, 由 init.bat 生成)
 ├── python_qwenasr/             # Qwen3-ASR 独立环境 (venv, 由 init.bat 生成)
@@ -61,6 +62,9 @@ comfyui-windows-modpack/
 | 8 | 下载全部模型（Qwen-Image / Wan2.2 / LTX-2.3 / Z-Image / Stable-Audio-3 / Qwen3-TTS / Qwen3-ASR / IndexTTS-2 等，已存在的自动跳过，可中断后重跑续传） |
 
 所有步骤均可重复运行，已完成的部分自动跳过（幂等）。All steps are idempotent — re-running skips what's done.
+
+日志：init.bat 的全部输出（含 stderr）会同时写入根目录 `init.log`（UTF-8 编码），控制台同步显示。脚本消息为英文，因 cmd.exe 无法可靠解析 .bat 中的中文（中文说明见本文档）。
+Logging: every line init.bat prints (including stderr) is teed to `init.log` (UTF-8) while the console shows it live. Script messages are English because cmd.exe cannot reliably parse Chinese inside .bat files; the Chinese docs are right here.
 
 三个独立环境的缘由（与 Docker 一致）：
 Three separate venvs (same as Docker): qwen-tts 依赖 `transformers==4.57.3`，而 qwen-asr 依赖 `transformers==4.57.6`，版本互斥，必须隔离。节点通过 `QWEN_VENV_PYTHON` / `QWEN_ASR_VENV_PYTHON` 环境变量（run.bat 中设置）找到各自的解释器。
