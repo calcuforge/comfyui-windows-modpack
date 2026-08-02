@@ -14,7 +14,7 @@ REM ============================================================
 REM ==================== Logging (all output also written to init.log) ====================
 set "ROOT=%~dp0"
 if "%1"=="--tee" goto :main
-powershell -NoProfile -Command "[Console]::OutputEncoding=[System.Text.Encoding]::GetEncoding([Console]::OutputCodePage); Add-Content -LiteralPath \"%~dp0init.log\" -Encoding utf8 -Value \"================================================\"; Add-Content -LiteralPath \"%~dp0init.log\" -Encoding utf8 -Value (\"[ \" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + \" ] init.bat started\"); cmd /d /c \"\"%~f0\"\" --tee 2>&1 | ForEach-Object { $t=$_.ToString(); $t; $t | Out-File -LiteralPath \"%~dp0init.log\" -Append -Encoding utf8 }; exit $LASTEXITCODE"
+powershell -NoProfile -Command "[Console]::OutputEncoding=[System.Text.Encoding]::GetEncoding([Console]::OutputCodePage); Add-Content -LiteralPath \"%~dp0init.log\" -Encoding utf8 -Value \"================================================\"; Add-Content -LiteralPath \"%~dp0init.log\" -Encoding utf8 -Value (\"[ \" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + \" ] init.bat started\"); cmd /d /c \"\"%~f0\"\" --tee %* 2>&1 | ForEach-Object { $t=$_.ToString(); $t; $t | Out-File -LiteralPath \"%~dp0init.log\" -Append -Encoding utf8 }; exit $LASTEXITCODE"
 set "ERR=%errorlevel%"
 echo.
 echo Init log saved to: %ROOT%init.log
@@ -45,8 +45,9 @@ REM hf CLI (shipped with huggingface_hub)
 set "HF_BIN=%VENV_COMFY%\Scripts\hf.exe"
 if not exist "%HF_BIN%" set "HF_BIN=%VENV_COMFY%\Scripts\huggingface-cli.exe"
 
-REM Set to 1 to skip model downloads (environment only)
+REM Set to 1 to skip model downloads, or pass --no-models on the command line
 set "SKIP_MODEL_DOWNLOAD=0"
+for %%a in (%*) do if /i "%%a"=="--no-models" set "SKIP_MODEL_DOWNLOAD=1"
 
 REM ==================== 0. Environment check ====================
 echo [0/8] Checking environment...
@@ -58,17 +59,16 @@ if errorlevel 1 (
 )
 
 set "PY="
-for /f "delims=" %%i in ('py -3.14 -c "import sys;print(sys.executable)" 2^>nul') do set "PY=%%i"
-if not defined PY for /f "delims=" %%i in ('py -3.13 -c "import sys;print(sys.executable)" 2^>nul') do set "PY=%%i"
+for /f "delims=" %%i in ('py -3.13 -c "import sys;print(sys.executable)" 2^>nul') do set "PY=%%i"
 if not defined PY (
-    for /f "delims=" %%i in ('python -c "import sys;v=sys.version_info;print(sys.executable) if (v.major,v.minor)>= (3,11) else None" 2^>nul') do set "PY=%%i"
+    for /f "delims=" %%i in ('python -c "import sys;v=sys.version_info;print(sys.executable) if (v.major,v.minor)==(3,13) else None" 2^>nul') do set "PY=%%i"
 )
 if not defined PY (
-    echo [ERROR] Python 3.11+ not found. Install Python 3.14: https://www.python.org/downloads/
+    echo [ERROR] Python 3.13 not found. Install Python 3.13: https://www.python.org/downloads/
     echo        During install, check "Add python.exe to PATH" or install the py launcher
     goto :fail
 )
-echo [0/8] Python: "%PY%"
+echo [0/8] Python 3.13: "%PY%"
 
 set "SAGE_SKIP=1"
 where nvidia-smi >nul 2>nul

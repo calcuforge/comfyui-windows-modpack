@@ -30,7 +30,7 @@ comfyui-windows-modpack/
 | 系统 / OS | Windows 10/11 64 位 (64-bit) |
 | 显卡 / GPU | NVIDIA 显卡，建议 Ampere (30系) 及以上 |
 | 显存 / VRAM | 建议 12GB+（视模型而定） |
-| Python | 3.14（3.11+ 亦可，脚本自动检测） |
+| Python | 3.13（必需，与 Docker 镜像一致；脚本检测不到 3.13 会提示安装） |
 | Git | https://git-scm.com/download/win |
 | CUDA Toolkit | 12.8+（**仅 SageAttention 源码编译需要**，可选，有 nvcc 则编译、否则尝试预编译包） |
 | VS Build Tools | C++ 桌面开发工作负载（仅 SageAttention 源码编译需要） |
@@ -75,7 +75,11 @@ Three separate venvs (same as Docker): qwen-tts 依赖 `transformers==4.57.3`，
 脚本已默认使用 `HF_ENDPOINT=https://hf-mirror.com`（国内镜像）和清华 PyPI 源，与 Docker 镜像一致。Git 克隆失败会自动切换 ghfast.top / ghproxy 代理重试。失败项在重新运行 `init.bat` 后自动续传。
 
 **Q2: 不想下载全部模型？**
-编辑 `init.bat` 顶部，将 `set "SKIP_MODEL_DOWNLOAD=0"` 改为 `1`，只搭建环境。之后可手动执行第 8 步需要的下载命令。
+两种方式（等价）：
+- 命令行参数：`init.bat --no-models`，只搭建环境不下载模型
+- 编辑 `init.bat` 顶部，将 `set "SKIP_MODEL_DOWNLOAD=0"` 改为 `1`
+
+之后可手动执行第 8 步需要的下载命令。
 
 **Q3: pynini 安装失败？**
 pynini 在 Windows 上无官方预编译包，属正常现象。Qwen3-TTS 不依赖 pynini，可正常使用。
@@ -101,7 +105,7 @@ Ported from the Docker image built by `docker/comfyui/comfyui_with_nodes.Dockerf
 Environment variables set by `run.bat`: `QWEN_VENV_PYTHON`, `QWEN_ASR_VENV_PYTHON` (used by the Qwen3-TTS/ASR nodes to locate their interpreters), `HF_ENDPOINT` (mirror), and `CACHE_RAM` (WanVideoWrapper VRAM cache cap).
 
 Notes:
-- Python 3.14 is auto-detected (`py -3.14` → `py -3.13` → any 3.11+ `python`).
+- Python 3.13 is required (same as the Docker image, which uses python3.13). The script refuses to run if 3.13 is not found (`py -3.13`, falling back to a `python` on PATH that reports 3.13).
 - PyTorch cu130 is installed via the Aliyun wheel mirror first, falling back to the official `download.pytorch.org/whl/cu130` index, then the default index.
 - `pynini` has no Windows wheels — installation is best-effort and skipped with a warning; Qwen3-TTS works without it.
 - All steps are resumable: re-running `init.bat` skips existing venvs, clones, installed packages, and downloaded models.
