@@ -27,8 +27,8 @@ REM WanVideoWrapper VRAM cache cap (same as Docker image)
 set "CACHE_RAM=46.5"
 
 cd /d "%ROOT%ComfyUI"
-echo Starting ComfyUI... browser will open http://127.0.0.1:8188 in 8 seconds
-start "" /b cmd /c "%SystemRoot%\System32\timeout.exe /t 8 /nobreak >nul & start http://127.0.0.1:8188"
+echo Starting ComfyUI... browser will open http://127.0.0.1:8188 once the server is ready
+start "" /b powershell -NoProfile -Command "for($i=0;$i -lt 60;$i++){ try{ $r=Invoke-WebRequest -Uri 'http://127.0.0.1:8188/' -TimeoutSec 3 -UseBasicParsing; if($r.StatusCode -eq 200){ Start-Process 'http://127.0.0.1:8188'; break } }catch{}; Start-Sleep -Seconds 5 }"
 "%ROOT%python_comfyui\Scripts\python.exe" main.py --listen 127.0.0.1 --port 8188
 echo.
 echo ComfyUI exited
