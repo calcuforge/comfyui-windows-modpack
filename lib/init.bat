@@ -244,6 +244,14 @@ REM Extra packages from the Docker image (failure is non-fatal)
 "%PYCOM%" -m pip install %PIP_FLAGS% nvidia-vfx
 if errorlevel 1 echo [4/8] WARNING: nvidia-vfx install failed (optional, skipped)
 
+REM --- Windows fixes for the IndexTTS node (deepspeed / text normalizer).
+REM deepspeed cannot be built on Windows and the 'tn' normalizer (pynini)
+REM has no Windows wheels; lib\patch_indextts.py applies idempotent fallbacks.
+if exist "%NODES_DIR%\ComfyUI_IndexTTS\indexttsnode.py" (
+    echo [4/8] Patching ComfyUI_IndexTTS for Windows...
+    "%PYCOM%" "%ROOT%lib\patch_indextts.py"
+)
+
 REM ==================== 5. Qwen3-TTS isolated venv ====================
 echo [5/8] Installing Qwen3-TTS isolated venv...
 "%PYTTS%" -m pip install %PIP_FLAGS% soundfile
