@@ -429,7 +429,17 @@ if exist "%TARGET_DIR%\%TARGET_FILE%" ( echo [8/8] Skip: %TARGET_FILE% already e
 for /l %%i in (1,1,5) do (
     echo [8/8] Downloading %%i/5: %REPO% / %FILE%
     "%HF_BIN%" download "%REPO%" "%FILE%" --local-dir "%TARGET_DIR%"
-    if not errorlevel 1 exit /b 0
+    if not errorlevel 1 (
+        REM hf CLI keeps the repo-relative path under --local-dir, so move the
+        REM file to the flat target name expected by ComfyUI
+        set "FILE_WIN=!FILE:/=\!"
+        if not exist "%TARGET_DIR%\%TARGET_FILE%" (
+            if exist "%TARGET_DIR%\!FILE_WIN!" (
+                move /y "%TARGET_DIR%\!FILE_WIN!" "%TARGET_DIR%\%TARGET_FILE%" >nul
+            )
+        )
+        if exist "%TARGET_DIR%\%TARGET_FILE%" exit /b 0
+    )
     echo [8/8] Download failed, retrying in 30 seconds...
     %SystemRoot%\System32\timeout.exe /t 30 /nobreak >nul
 )
