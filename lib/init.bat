@@ -297,16 +297,24 @@ cd /d "%ROOT%"
 :sage_done
 
 REM ==================== FFmpeg (installed into the project folder) ====================
+REM Note: must be a SHARED build (ships DLLs). torchcodec (used by torchaudio.save
+REM and the IndexTTS node) loads libtorchcodec_core*.dll whose FFmpeg dependencies
+REM are only found next to the module, not via PATH. Use FFmpeg 8.1 stable
+REM (avcodec-62): torchcodec 0.15's core8 maps to it, while BtbN master builds
+REM (avcodec-63) do not match.
 echo [ffmpeg] Checking FFmpeg...
-if exist "%ROOT%ffmpeg\bin\ffmpeg.exe" (
+if exist "%ROOT%ffmpeg\bin\ffmpeg.exe" if exist "%ROOT%ffmpeg\bin\*.dll" (
     echo [ffmpeg] Already installed: %ROOT%ffmpeg\bin
+    if exist "%VENV_COMFY%\Lib\site-packages\torchcodec" (
+        copy /y "%ROOT%ffmpeg\bin\*.dll" "%VENV_COMFY%\Lib\site-packages\torchcodec\" >nul
+    )
     goto :ffmpeg_done
 )
-echo [ffmpeg] Downloading FFmpeg build (~200MB, github with proxy fallback)...
+echo [ffmpeg] Downloading FFmpeg 8.1 shared build (~80MB, github with proxy fallback)...
 set "FFMPEG_ZIP=%ROOT%ffmpeg_tmp.zip"
-curl -L --retry 2 --connect-timeout 30 --max-time 1800 -o "%FFMPEG_ZIP%" "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip" >nul 2>&1
-if errorlevel 1 curl -L --retry 2 --connect-timeout 30 --max-time 1800 -o "%FFMPEG_ZIP%" "%GHFAST%/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip" >nul 2>&1
-if errorlevel 1 curl -L --retry 2 --connect-timeout 30 --max-time 1800 -o "%FFMPEG_ZIP%" "%GHPROXY%/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip" >nul 2>&1
+curl -L --retry 2 --connect-timeout 30 --max-time 1800 -o "%FFMPEG_ZIP%" "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-n8.1-latest-win64-gpl-shared-8.1.zip" >nul 2>&1
+if errorlevel 1 curl -L --retry 2 --connect-timeout 30 --max-time 1800 -o "%FFMPEG_ZIP%" "%GHFAST%/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-n8.1-latest-win64-gpl-shared-8.1.zip" >nul 2>&1
+if errorlevel 1 curl -L --retry 2 --connect-timeout 30 --max-time 1800 -o "%FFMPEG_ZIP%" "%GHPROXY%/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-n8.1-latest-win64-gpl-shared-8.1.zip" >nul 2>&1
 if errorlevel 1 (
     echo [ffmpeg] WARNING: FFmpeg download failed, skipped
     goto :ffmpeg_done
@@ -320,15 +328,19 @@ if errorlevel 1 (
 if not exist "%ROOT%ffmpeg\bin" mkdir "%ROOT%ffmpeg\bin"
 for /d %%d in ("%ROOT%ffmpeg_tmp\*") do (
     if exist "%%d\bin\ffmpeg.exe" (
-        move /y "%%d\bin\ffmpeg.exe" "%ROOT%ffmpeg\bin\" >nul
-        move /y "%%d\bin\ffprobe.exe" "%ROOT%ffmpeg\bin\" >nul
-        move /y "%%d\bin\ffplay.exe" "%ROOT%ffmpeg\bin\" >nul
+        REM move everything (exes and shared DLLs) so torchcodec can find the FFmpeg libs
+        for %%f in ("%%d\bin\*") do move /y "%%f" "%ROOT%ffmpeg\bin\" >nul
     )
 )
 del "%FFMPEG_ZIP%" >nul 2>&1
 rmdir /s /q "%ROOT%ffmpeg_tmp" >nul 2>&1
 if exist "%ROOT%ffmpeg\bin\ffmpeg.exe" (
     echo [ffmpeg] Installed: %ROOT%ffmpeg\bin\ffmpeg.exe
+    REM torchcodec resolves FFmpeg DLLs next to its own module, not via PATH
+    if exist "%VENV_COMFY%\Lib\site-packages\torchcodec" (
+        echo [ffmpeg] Copying FFmpeg DLLs to torchcodec package dir...
+        copy /y "%ROOT%ffmpeg\bin\*.dll" "%VENV_COMFY%\Lib\site-packages\torchcodec\" >nul
+    )
 ) else (
     echo [ffmpeg] WARNING: ffmpeg.exe not found after extract, skipped
 )

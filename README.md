@@ -59,7 +59,7 @@ comfyui-windows-modpack/
 | 5 | Qwen3-TTS venv: soundfile + ComfyUI-Qwen3-TTS deps (qwen-tts etc.) |
 | 6 | Qwen3-ASR venv: qwen-asr / modelscope / transformers==4.57.6 etc. |
 | 7 | Build SageAttention (auto-detects GPU compute capability; falls back to the pip wheel without nvcc) |
-| 7.5 | Download FFmpeg into `ffmpeg/` (BtbN win64 build; github direct -> ghfast -> ghproxy fallback) |
+| 7.5 | Download FFmpeg 8.1 **shared** build into `ffmpeg/` and copy its DLLs into the torchcodec package dir (required by torchaudio.save / IndexTTS; github direct -> ghfast -> ghproxy fallback) |
 | 8 | Download all models (Qwen-Image / Wan2.2 / LTX-2.3 / Z-Image / Stable-Audio-3 / Qwen3-TTS / Qwen3-ASR / IndexTTS-2 etc.; existing files are skipped, safe to interrupt and resume) |
 
 All steps are idempotent — re-running skips what's done.

@@ -59,7 +59,7 @@ comfyui-windows-modpack/
 | 5 | Qwen3-TTS 独立环境：soundfile + ComfyUI-Qwen3-TTS 依赖（qwen-tts 等） |
 | 6 | Qwen3-ASR 独立环境：qwen-asr / modelscope / transformers==4.57.6 等 |
 | 7 | 编译安装 SageAttention（自动检测 GPU 计算能力，CUDA_ARCH 对应；无 nvcc 则回退 pip 预编译包） |
-| 7.5 | 下载 FFmpeg 到 `ffmpeg/`（BtbN win64 构建，github 直连 → ghfast → ghproxy 逐级回退） |
+| 7.5 | 下载 FFmpeg 8.1 **shared** 构建到 `ffmpeg/` 并把 DLL 复制进 torchcodec 包目录（torchaudio.save / IndexTTS 必需；github 直连 → ghfast → ghproxy 逐级回退） |
 | 8 | 下载全部模型（Qwen-Image / Wan2.2 / LTX-2.3 / Z-Image / Stable-Audio-3 / Qwen3-TTS / Qwen3-ASR / IndexTTS-2 等，已存在的自动跳过，可中断后重跑续传） |
 
 所有步骤均可重复运行，已完成的部分自动跳过（幂等）。
