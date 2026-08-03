@@ -20,6 +20,7 @@ comfyui-windows-modpack/
 ├── python_qwentts/             # Qwen3-TTS 独立环境 (venv, 由 init.bat 生成)
 ├── python_qwenasr/             # Qwen3-ASR 独立环境 (venv, 由 init.bat 生成)
 ├── SageAttention/              # SageAttention 源码 (由 init.bat 生成)
+├── ffmpeg/                     # FFmpeg 可执行文件, 随包自带 (由 init.bat 生成)
 └── ComfyUI/                    # ComfyUI 主程序 + custom_nodes + models (由 init.bat 生成)
 ```
 
@@ -55,6 +56,7 @@ comfyui-windows-modpack/
 | 5 | Qwen3-TTS 独立环境：soundfile + ComfyUI-Qwen3-TTS 依赖（qwen-tts 等） |
 | 6 | Qwen3-ASR 独立环境：qwen-asr / modelscope / transformers==4.57.6 等 |
 | 7 | 编译安装 SageAttention（自动检测 GPU 计算能力，CUDA_ARCH 对应；无 nvcc 则回退 pip 预编译包） |
+| 7.5 | 下载 FFmpeg 到 `ffmpeg/`（BtbN win64 构建，github 直连 → ghfast → ghproxy 逐级回退） |
 | 8 | 下载全部模型（Qwen-Image / Wan2.2 / LTX-2.3 / Z-Image / Stable-Audio-3 / Qwen3-TTS / Qwen3-ASR / IndexTTS-2 等，已存在的自动跳过，可中断后重跑续传） |
 
 所有步骤均可重复运行，已完成的部分自动跳过（幂等）。
@@ -62,6 +64,8 @@ comfyui-windows-modpack/
 **日志：** init.bat 的全部输出（含 stderr）会同时写入根目录 `init.log`（UTF-8 编码），控制台同步显示。脚本消息为英文，因 cmd.exe 无法可靠解析 .bat 中的中文。
 
 **三个独立环境的缘由（与 Docker 一致）：** qwen-tts 依赖 `transformers==4.57.3`，而 qwen-asr 依赖 `transformers==4.57.6`，版本互斥，必须隔离。节点通过 `QWEN_VENV_PYTHON` / `QWEN_ASR_VENV_PYTHON` 环境变量（run.bat 中设置）找到各自的解释器。
+
+**FFmpeg：** init.bat 会把 FFmpeg（BtbN win64 构建）安装到项目内 `ffmpeg\bin`（约 200MB，已有则跳过）。run.bat 启动时把 `ffmpeg\bin` 前置到 PATH，所有节点（VideoHelperSuite、ffmpeg-python 等）均可直接使用，不依赖系统安装。
 
 ## 常见问题
 

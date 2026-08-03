@@ -26,6 +26,9 @@ set "HF_HUB_DISABLE_XET=1"
 REM WanVideoWrapper VRAM cache cap (same as Docker image)
 set "CACHE_RAM=46.5"
 
+REM FFmpeg shipped in the package (installed by init.bat into %ROOT%ffmpeg\bin)
+if exist "%ROOT%ffmpeg\bin" set "PATH=%ROOT%ffmpeg\bin;%PATH%"
+
 cd /d "%ROOT%ComfyUI"
 echo Starting ComfyUI... browser will open http://127.0.0.1:8188 once the server is ready
 start "" /b powershell -NoProfile -Command "for($i=0;$i -lt 60;$i++){ try{ $r=Invoke-WebRequest -Uri 'http://127.0.0.1:8188/' -TimeoutSec 3 -UseBasicParsing; if($r.StatusCode -eq 200){ Start-Process 'http://127.0.0.1:8188'; break } }catch{}; Start-Sleep -Seconds 5 }"

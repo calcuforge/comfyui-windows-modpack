@@ -6,6 +6,7 @@ python_comfyui/
 python_qwentts/
 python_qwenasr/
 SageAttention/
+ffmpeg/
 
 # 运行日志 / runtime log
 init.log

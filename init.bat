@@ -296,6 +296,44 @@ if errorlevel 1 (
 cd /d "%ROOT%"
 :sage_done
 
+REM ==================== FFmpeg (installed into the project folder) ====================
+echo [ffmpeg] Checking FFmpeg...
+if exist "%ROOT%ffmpeg\bin\ffmpeg.exe" (
+    echo [ffmpeg] Already installed: %ROOT%ffmpeg\bin
+    goto :ffmpeg_done
+)
+echo [ffmpeg] Downloading FFmpeg build (~200MB, github with proxy fallback)...
+set "FFMPEG_ZIP=%ROOT%ffmpeg_tmp.zip"
+curl -L --retry 2 --connect-timeout 30 --max-time 1800 -o "%FFMPEG_ZIP%" "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip" >nul 2>&1
+if errorlevel 1 curl -L --retry 2 --connect-timeout 30 --max-time 1800 -o "%FFMPEG_ZIP%" "%GHFAST%/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip" >nul 2>&1
+if errorlevel 1 curl -L --retry 2 --connect-timeout 30 --max-time 1800 -o "%FFMPEG_ZIP%" "%GHPROXY%/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip" >nul 2>&1
+if errorlevel 1 (
+    echo [ffmpeg] WARNING: FFmpeg download failed, skipped
+    goto :ffmpeg_done
+)
+echo [ffmpeg] Extracting...
+powershell -NoProfile -Command "Expand-Archive -LiteralPath \"%FFMPEG_ZIP%\" -DestinationPath \"%ROOT%ffmpeg_tmp\" -Force"
+if errorlevel 1 (
+    echo [ffmpeg] WARNING: FFmpeg extract failed, skipped
+    goto :ffmpeg_done
+)
+if not exist "%ROOT%ffmpeg\bin" mkdir "%ROOT%ffmpeg\bin"
+for /d %%d in ("%ROOT%ffmpeg_tmp\*") do (
+    if exist "%%d\bin\ffmpeg.exe" (
+        move /y "%%d\bin\ffmpeg.exe" "%ROOT%ffmpeg\bin\" >nul
+        move /y "%%d\bin\ffprobe.exe" "%ROOT%ffmpeg\bin\" >nul
+        move /y "%%d\bin\ffplay.exe" "%ROOT%ffmpeg\bin\" >nul
+    )
+)
+del "%FFMPEG_ZIP%" >nul 2>&1
+rmdir /s /q "%ROOT%ffmpeg_tmp" >nul 2>&1
+if exist "%ROOT%ffmpeg\bin\ffmpeg.exe" (
+    echo [ffmpeg] Installed: %ROOT%ffmpeg\bin\ffmpeg.exe
+) else (
+    echo [ffmpeg] WARNING: ffmpeg.exe not found after extract, skipped
+)
+:ffmpeg_done
+
 REM ==================== 8. Download models ====================
 echo [8/8] Downloading models (existing files are skipped, safe to interrupt and re-run)...
 if "%SKIP_MODEL_DOWNLOAD%"=="1" goto :models_done
