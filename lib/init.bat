@@ -500,7 +500,11 @@ exit /b 0
 set "REPO=%~1"
 set "TARGET_DIR=%~2"
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
-if exist "%TARGET_DIR%\*" ( echo [8/8] Skip: %~nx2 non-empty & exit /b 0 )
+REM skip only if real files exist: an interrupted download leaves only a .cache
+REM dir behind, and "if exist dir\*" is true for it, which would skip forever
+set "HAS_FILES="
+for /f "delims=" %%f in ('dir /b "%TARGET_DIR%" 2^>nul ^| findstr /v /i "^\.cache$"') do set "HAS_FILES=1"
+if defined HAS_FILES ( echo [8/8] Skip: %~nx2 already downloaded & exit /b 0 )
 for /l %%i in (1,1,5) do (
     echo [8/8] Downloading %%i/5 folder: %REPO%
     "%HF_BIN%" download "%REPO%" --local-dir "%TARGET_DIR%"
