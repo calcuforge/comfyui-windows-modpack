@@ -197,7 +197,32 @@ for /d %%d in ("%NODES_DIR%\*") do (
     if /i not "!NODE!"=="ComfyUI-Qwen3-TTS" if /i not "!NODE!"=="ComfyUI-Qwen3-ASR" (
         if exist "%%d\requirements.txt" (
             echo [4/8] Installing dependencies: !NODE!
-            "%PYCOM%" -m pip install %PIP_FLAGS% -r "%%d\requirements.txt"
+            REM strip already-installed git+ deps: pip re-clones them on every run otherwise
+            set "REQ_TMP="
+            findstr /b "git+" "%%d\requirements.txt" >nul 2>&1
+            if not errorlevel 1 (
+                set "REQ_TMP=%TEMP%\comfyui_req_!NODE!.txt"
+                type "%%d\requirements.txt" > "!REQ_TMP!"
+                for /f "usebackq eol=# delims=" %%p in ("%%d\requirements.txt") do (
+                    set "PKG=%%p"
+                    if "!PKG:~0,4!"=="git+" (
+                        for %%s in ("!PKG!") do set "LAST=%%~nxs"
+                        for /f "delims=@" %%s in ("!LAST!") do set "LAST=%%s"
+                        "%PYCOM%" -m pip list --format=freeze 2>nul | findstr /i /c:"!LAST!" >nul
+                        if not errorlevel 1 (
+                            echo [4/8] Skip already-installed git dep: !LAST!
+                            findstr /v /c:"!PKG!" "!REQ_TMP!" > "!REQ_TMP!.tmp"
+                            move /y "!REQ_TMP!.tmp" "!REQ_TMP!" >nul
+                        )
+                    )
+                )
+            )
+            if defined REQ_TMP (
+                "%PYCOM%" -m pip install %PIP_FLAGS% -r "!REQ_TMP!"
+                del "!REQ_TMP!" >nul 2>&1
+            ) else (
+                "%PYCOM%" -m pip install %PIP_FLAGS% -r "%%d\requirements.txt"
+            )
             if errorlevel 1 (
                 echo [4/8] WARNING: batch install failed for !NODE!, retrying package by package...
                 for /f "usebackq eol=# delims=" %%p in ("%%d\requirements.txt") do (
