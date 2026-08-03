@@ -12,12 +12,12 @@ REM  reliably parse UTF-8 Chinese in .bat files).
 REM ============================================================
 
 REM ==================== Logging (all output also written to init.log) ====================
-set "ROOT=%~dp0"
+for %%i in ("%~dp0..") do set "ROOT=%%~fi\"
 if "%1"=="--tee" goto :main
 powershell -NoProfile -Command "[Console]::OutputEncoding=[System.Text.Encoding]::GetEncoding([Console]::OutputCodePage); Add-Content -LiteralPath \"%~dp0init.log\" -Encoding utf8 -Value \"================================================\"; Add-Content -LiteralPath \"%~dp0init.log\" -Encoding utf8 -Value (\"[ \" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + \" ] init.bat started\"); cmd /d /c \"\"%~f0\"\" --tee %* 2>&1 | ForEach-Object { $t=$_.ToString(); $t; $t | Out-File -LiteralPath \"%~dp0init.log\" -Append -Encoding utf8 }; exit $LASTEXITCODE"
 set "ERR=%errorlevel%"
 echo.
-echo Init log saved to: %ROOT%init.log
+echo Init log saved to: %~dp0init.log
 pause
 exit /b %ERR%
 
@@ -257,7 +257,7 @@ if errorlevel 1 (
 
 REM ==================== 6. Qwen3-ASR isolated venv ====================
 echo [6/8] Installing Qwen3-ASR isolated venv...
-"%PYASR%" -m pip install %PIP_FLAGS% -r "%ROOT%qwen3_asr_requirements.txt"
+"%PYASR%" -m pip install %PIP_FLAGS% -r "%ROOT%lib\qwen3_asr_requirements.txt"
 if errorlevel 1 (
     echo [WARNING] Qwen3-ASR dependency install failed, re-run this script after fixing network
 )

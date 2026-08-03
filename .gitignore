@@ -9,4 +9,4 @@ SageAttention/
 ffmpeg/
 
 # 运行日志 / runtime log
-init.log
+lib/init.log

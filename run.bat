@@ -8,10 +8,10 @@ if not exist "%ROOT%ffmpeg\bin\ffmpeg.exe" goto :init
 goto :start
 
 :init
-echo Init environment not found. First run will execute init.bat automatically
+echo Init environment not found. First run will execute lib\init.bat automatically
 echo Init includes environment setup and model downloads, may take hours
 echo.
-call "%ROOT%init.bat"
+call "%ROOT%lib\init.bat"
 if errorlevel 1 ( echo Init failed, check errors above & pause & exit /b 1 )
 
 :start

@@ -2,7 +2,7 @@
 
 基于 Docker 镜像 `comfyui_with_nodes.Dockerfile` 移植的 Windows 解压即用整合包。
 
-[English documentation](README.md)
+[English documentation](../README.md)
 
 **包含：** ComfyUI 主程序、46 个 custom_nodes、SageAttention、Qwen3-TTS / Qwen3-ASR 独立运行环境、全套模型自动下载。
 
@@ -10,12 +10,15 @@
 
 ```
 comfyui-windows-modpack/
-├── init.bat                    # 初始化脚本 (venv / ComfyUI / 节点 / SageAttention / 模型)
-├── run.bat                     # 一键启动脚本 (首次运行自动调用 init.bat)
-├── qwen3_asr_requirements.txt  # Qwen3-ASR 独立环境依赖清单
+├── LICENSE
 ├── README.md                   # 英文文档
-├── README.zh-CN.md             # 本文档（中文）
-├── init.log                    # 初始化运行日志 (由 init.bat 自动生成, 控制台与日志同时输出)
+├── .gitignore
+├── run.bat                     # 一键启动脚本 (首次运行自动调用 lib\init.bat)
+├── lib/                        # 脚本与配置
+│   ├── init.bat                # 初始化脚本 (venv / ComfyUI / 节点 / SageAttention / 模型)
+│   ├── qwen3_asr_requirements.txt  # Qwen3-ASR 独立环境依赖清单
+│   ├── README.zh-CN.md         # 本文档（中文）
+│   └── init.log                # 初始化运行日志 (由 init.bat 自动生成, 控制台与日志同时输出)
 ├── python_comfyui/             # ComfyUI 主环境 (venv, 由 init.bat 生成)
 ├── python_qwentts/             # Qwen3-TTS 独立环境 (venv, 由 init.bat 生成)
 ├── python_qwenasr/             # Qwen3-ASR 独立环境 (venv, 由 init.bat 生成)
@@ -40,8 +43,8 @@ comfyui-windows-modpack/
 ## 快速开始
 
 1. 解压整合包到任意目录（路径建议不含中文与空格）。
-2. 双击 `run.bat` —— 首次运行会自动执行 `init.bat` 完成初始化（耗时较长，含模型下载）。
-   或先手动双击 `init.bat` 完成初始化，再双击 `run.bat`。
+2. 双击 `run.bat` —— 首次运行会自动执行 `lib\init.bat` 完成初始化（耗时较长，含模型下载）。
+   或先手动运行 `lib\init.bat` 完成初始化，再双击 `run.bat`。
 3. 浏览器在**服务就绪后**自动打开 `http://127.0.0.1:8188`（启动器轮询端口，无固定延迟）。
 
 ## init.bat 做了什么
